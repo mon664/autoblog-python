@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0;
+        font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 500px;
+        height: 500px;
+        background-color: #f0f0f0;
+      }
+      .thumbnail {
+        width: 400px;
+        height: 300px;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+      }
+      .header {
+        background: #0078d1;
+        color: #ffffff;
+        font-size: 30px;
+        font-weight: bold;
+        padding: 10px;
+        text-align: center;
+      }
+      .main {
+        background: #ffffff;
+        font-size: 40px;
+        color: #ff4500;
+        font-weight: bold;
+        text-align: center;
+        padding: 20px 0;
+      }
+      .footer {
+        background: #d1efff;
+        font-size: 30px;
+        font-weight: bold;
+        color: #333333;
+        padding: 10px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="thumbnail">
+      <div class="header">{pre_fix}</div>
+      <div class="main">{main}</div>
+      <div class="footer">{post_fix}</div>
+    </div>
+  </body>
+</html>

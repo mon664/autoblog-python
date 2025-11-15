@@ -1,0 +1,25 @@
+<div style="background: #fff5f8; border-radius: 20px; padding: 30px; margin: 25px auto; max-width: 580px; font-family: 'Montserrat', sans-serif; color: #7d5a7d; border: 1px solid #ffe0f0; box-shadow: 0 4px 8px rgba(221, 160, 221, 0.3);">
+    <div style="text-align: right; margin-bottom: 10px;">
+        <span style="background-color: #ffc0cb; color: #a05070; padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: 600;">#{nth} Sweet Choice</span>
+    </div>
+    <a href="{link}" target="_blank" style="text-decoration: none; color: inherit;" rel="sponsored">
+        <div style="text-align: center; margin:0 auto 20px; padding: 15px; background: #ffffff; border-radius: 15px;min-width:450px;">
+            {image_tag}
+        </div>
+        <h3 style="margin: 0 0 10px 0; font-size: 22px; font-weight: 600; color: #a05070; text-align: center;">{name}</h3>
+        {rating_container}
+        <p style="margin: 0 0 15px 0; font-size: 14px; color: #9d7a9d; text-align: center;">{review_count}개의 후기</p>
+        <div style="background: rgba(255, 255, 255, 0.7); border-radius: 10px; padding: 15px; max-height: 250px; overflow-y: auto; font-size: 14px; color: #8d6a8d; line-height: 1.6;">
+             {review_content}
+        </div>
+        <div style="margin-top: 20px; text-align: center;">
+            <span style="text-decoration: line-through; color: #c0a0c0; font-size: 16px;">{origin_price:,.0f}원</span>
+            <span style="color: #db7093; font-size: 26px; font-weight: bold; margin-left: 10px;">{sale_price:,.0f}원</span>
+        </div>
+        <button style="background-color: #ffc0cb; color: #a05070; border: none; padding: 12px 28px; border-radius: 20px; cursor: pointer; transition: background-color 0.3s, transform 0.2s; font-size: 15px; font-weight: 600; display: block; width: fit-content; margin: 20px auto 0 auto; text-align: center; box-shadow: 0 2px 4px rgba(221, 160, 221, 0.4);"
+                onmouseover="this.style.backgroundColor='#ffb6c1'; this.style.transform='translateY(-1px)';"
+                onmouseout="this.style.backgroundColor='#ffc0cb'; this.style.transform='translateY(0px)';">
+            더 알아보기
+        </button>
+    </a>
+</div>

@@ -1,0 +1,24 @@
+<div style="background-color: #fdf6e3; border: 1px solid #d2c6aa; border-radius: 4px; padding: 25px; margin: 20px auto; max-width: 620px; font-family: 'Playfair Display', serif; color: #584c2e; box-shadow: 3px 3px 0px #d2c6aa;">
+    <div style="border-bottom: 2px solid #b8a98a; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <h2 style="margin: 0; font-size: 24px; font-weight: 700; color: #8b4513;">{name}</h2>
+        <span style="font-size: 14px; font-weight: bold; color: #a0522d;">No.{nth}</span>
+    </div>
+    <a href="{link}" target="_blank" style="text-decoration: none; color: inherit;" rel="sponsored">
+        <div style="margin-bottom:0 auto 25px; padding: 10px; border: 1px dashed #c8bfa3;min-width:450px;">
+            {image_tag}
+        </div>
+        {rating_container}
+        <p style="margin: 0 0 15px 0; font-size: 15px; color: #6f5f3e; text-align: center; font-style: italic;">{review_count}개의 리뷰</p>
+        <div style="background: #faf0d7; border: 1px solid #e9ddc0; border-radius: 3px; padding: 15px; max-height: 250px; overflow-y: auto; font-size: 14px; color: #695c40; line-height: 1.7; font-family: Georgia, serif;">
+             {review_content}
+        </div>
+        <div style="margin-top: 25px; text-align: right; font-family: monospace;">
+            <span style="text-decoration: line-through; color: #998b6b; font-size: 16px;">{origin_price:,.0f} KRW</span><br>
+            <span style="color: #a0522d; font-size: 24px; font-weight: bold;">NOW: {sale_price:,.0f} KRW</span>
+        </div>
+        <button style="background-color: #d2b48c; color: #4a3c1f; border: 1px solid #a08c6d; padding: 10px 20px; border-radius: 3px; cursor: pointer; transition: background-color 0.3s; font-size: 14px; font-weight: bold; display: block; width: 100%; margin-top: 20px; text-align: center; font-family: 'Playfair Display', serif;"
+                onmouseover="this.style.backgroundColor='#c8a97e';" onmouseout="this.style.backgroundColor='#d2b48c';">
+            자세히 보기
+        </button>
+    </a>
+</div>

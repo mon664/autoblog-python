@@ -1,0 +1,22 @@
+<div style="background: #fff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 20px; margin: 20px auto; max-width: 580px; font-family: 'Quicksand', sans-serif; color: #555; text-align: center; border-left: 8px solid #ff6b6b; border-right: 8px solid #4ecdc4;">
+    <div style="background: #feca57; color: #fff; padding: 5px 10px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: bold; margin-bottom: 15px;">#{nth} 베스트셀러!</div>
+    <a href="{link}" target="_blank" style="text-decoration: none; color: inherit;" rel="sponsored">
+        <div style="margin: 0 auto 20px;min-width:450px;">
+             {image_tag} 
+        </div>
+        <h4 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 700; color: #ff6b6b;">{name}</h4>
+        {rating_container} 
+        <p style="margin: 0 0 15px 0; font-size: 14px; color: #777;">{review_count}명의 친구들이 추천했어요! {rating_message}점</p>
+        <div style="background: #f8f8f8; border-radius: 10px; padding: 12px; max-height: 250px; overflow-y: auto; text-align: left; font-size: 13px; line-height: 1.5; margin-top: 15px;">
+             {review_content}
+        </div>
+        <div style="margin: 20px 0;">
+             <span style="text-decoration: line-through; color: #aaa; font-size: 15px;">{origin_price:,.0f}원</span>
+             <span style="color: #4ecdc4; font-size: 26px; font-weight: bold; margin-left: 10px;">{sale_price:,.0f}원</span>
+        </div>
+        <button style="background: linear-gradient(45deg, #ff6b6b, #feca57); color: white; border: none; padding: 10px 28px; border-radius: 30px; cursor: pointer; transition: transform 0.2s ease; font-size: 16px; font-weight: bold; box-shadow: 0 3px 6px rgba(255, 107, 107, 0.4);"
+                onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1.0)';">
+            득템하러 가기!
+        </button>
+    </a>
+</div>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0;
+        font-family: Malgun Gothic, Dotum, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width:500px;
+        height: 500px;
+        background-color: #002133;
+      }
+      .thumbnail {
+        width: 400px;
+        height: 300px;
+        background: #fff;
+        border: 5px solid #c9d5ff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        display:flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+      .upper {
+        background: #0078d1;
+        width: 100%;
+        color: #fff;
+        padding: 10px;
+        font-size: 35px;
+        box-shadow: 0px 2px 13px 0px #030000;
+      }
+      .title {
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        font-weight: bold;
+      }
+      .main {
+        color: yellow;
+        font-size: 45px;
+      }
+      .subtitle {
+        font-size: 30px;
+        color: #414141;
+        margin-top: 20px;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px #ffffff;
+        background: #ffd545;
+        padding: 10px;
+        width: 100%;
+        box-shadow: -1px 2px 9px 0px #4d4d4d
+      }
+      
+    </style>
+  </head>
+  <body>
+    <div class="thumbnail">
+        <div class="upper">
+            <div class="title">
+              <div class="pre">{pre_fix}</div>
+              <div class="main">{main}</div>
+                
+            </div>
+        </div>
+        <div class="subtitle">{post_fix}</div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+<div style="background-color: #1a1a1a; border: 3px solid #ffd600; border-radius: 0; padding: 25px; margin: 25px auto; max-width: 640px; font-family: 'Archivo Black', sans-serif; color: #ffffff; text-transform: uppercase;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 15px;">
+        <h2 style="margin: 0; font-size: 28px; color: #ffd600; letter-spacing: 1px;">{name}</h2>
+        <span style="font-size: 16px; color: #ffffff; font-weight: bold;">#{nth} 핫 아이템</span>
+    </div>
+    <a href="{link}" target="_blank" style="text-decoration: none; color: inherit;" rel="sponsored">
+        <div style="margin: 25px auto; text-align: center; background: #333; padding: 10px;minx-width:450px;">
+            {image_tag} 
+        </div>
+        {rating_container}
+        <p style="margin: 0 0 20px 0; font-size: 14px; color: #ccc; text-align: center; font-family: sans-serif;">{review_count}개의 리뷰</p>
+        <div style="background:rgb(166, 166, 166); padding: 15px; max-height: 250px; overflow-y: auto; font-size: 13px; color: #fff; line-height: 1.5; font-family: sans-serif; text-transform: none;">
+            {review_content}
+        </div>
+        <div style="margin-top: 25px; text-align: right; border-top: 1px dashed #555; padding-top: 15px;">
+            <span style="text-decoration: line-through; color: #888; font-size: 18px; margin-right: 15px; font-family: sans-serif;">{origin_price:,.0f}원</span>
+            <span style="color: #ffd600; font-size: 32px; font-weight: bold;">{sale_price:,.0f}원</span>
+        </div>
+        <button style="background-color: #ffd600; color: #1a1a1a; border: none; padding: 15px 30px; border-radius: 0; cursor: pointer; transition: opacity 0.3s; font-size: 18px; font-weight: bold; display: block; width: 100%; margin-top: 25px; text-align: center; text-transform: uppercase;"
+                onmouseover="this.style.opacity='0.85';" onmouseout="this.style.opacity='1';">
+            체크해보기
+        </button>
+    </a>
+</div>

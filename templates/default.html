@@ -1,0 +1,18 @@
+<div class='banner' style='color: #333;border: 1px solid #ddd;border-radius: 5px;padding: 10px;text-align: center; margin: 10px;'>
+    <div class='title' style='margin: 10px 0px !important; font-size:16px; font-weight:700; letter-spacing:1px; text-transform:uppercase; text-align:center; margin:auto; padding-bottom:13px !important;'>
+        <div style='background-color: #c50000;display: block;height: 3px;width: 75px;'></div>오늘의 {nth} 번째 상품입니다. <b>{review_count}</b>개의 리뷰{rating_message} 기록하고 있는 <b>{name}</b> 입니다.</div>
+        <a href='{link}' target="_blank" style='text-decoration: none'>
+            {image_tag}
+            <div style='margin: 10px 0px !important; font-size:16px; font-weight:700;  letter-spacing:1px; text-transform:uppercase; text-align:center; margin:auto; padding-bottom:13px;'>
+                <div style='background-color: #c50000;display: block;height: 3px;width: 75px;'></div>{name}
+            </div>
+            {rating_container}
+            <div class='review-content' style='margin-top: 10px;max-height: 400px;overflow-y: scroll;text-align: left;color: #000;font-size: 14px;font-weight: bold;text-decoration: none;position: relative;margin-bottom: 10px;padding: 16px;box-sizing: border-box;'>{review_content}</div>
+            <p>
+                <span class='original-price' style=' text-decoration: line-through;color: #777;'>{origin_price:,.0f}원</span> 
+                <span class='sale-price' style='color: #E53E3E;font-size: 24px;font-weight: bold;'>{sale_price:,.0f}원</span>
+            </p>
+            <p class='product-rating' style='color: #f5c518;'>{review_count}개의 리뷰</p>
+            <button style='background-color: #d80606; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;'>자세하게 알아보기</button>
+        </a>
+</div>

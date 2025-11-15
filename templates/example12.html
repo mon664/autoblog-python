@@ -1,0 +1,22 @@
+<div style="background-color: #f5fdf5; border: 1px solid #c8e6c9; border-radius: 12px; padding: 25px; margin: 20px auto; max-width: 600px; font-family: 'Lora', serif; color: #3e5a3e; position: relative;">
+    <div style="position: absolute; top:15px; right: 15px; background-color: #4caf50; color: white; padding: 6px 10px; border-radius: 15px; font-size: 12px; font-family: sans-serif;">#{nth}</div>
+   <a href="{link}" target="_blank" style="text-decoration: none; color: inherit;" rel="sponsored">
+       <div style="text-align: center; margin:0 auto 20px;min-width:450px;">
+           {image_tag}
+       </div>
+       <h3 style="margin: 0 0 10px 0; font-size: 22px; font-weight: 600; color: #2e7d32; text-align: center;">{name}</h3>
+       {rating_container}
+       <p style="margin: 0 0 15px 0; font-size: 14px; color: #6f8c6f; text-align: center;">{review_count}개의 리뷰</p>
+       <div style="background: #e8f5e9; border-radius: 8px; padding: 15px; max-height: 250px; overflow-y: auto; font-size: 14px; color: #4e6a4e; line-height: 1.7; font-family: sans-serif;">
+           {review_content}
+       </div>
+       <div style="margin-top: 20px; text-align: center;">
+           <span style="text-decoration: line-through; color: #a5a5a5; font-size: 15px;">{origin_price:,.0f}원</span>
+           <span style="color: #4caf50; font-size: 24px; font-weight: bold; margin-left: 10px;">{sale_price:,.0f}원</span>
+       </div>
+        <button style="background-color: #66bb6a; color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; transition: background-color 0.3s; font-size: 15px; font-weight: bold; display: block; width: 80%; margin: 20px auto 0 auto; text-align: center; font-family: sans-serif;"
+                onmouseover="this.style.backgroundColor='#4caf50';" onmouseout="this.style.backgroundColor='#66bb6a';">
+           자세히 보기
+        </button>
+   </a>
+</div>
