@@ -1009,6 +1009,119 @@ def upload_file_to_ftp():
             return jsonify({"success": False, "error": "FTP upload failed"}), 500
 
     except Exception as e:
+        logger.error(f"File upload error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# ===========================
+# 📁 FTP 파일 관리 엔드포인트
+# ===========================
+
+@app.route('/api/files/list', methods=['GET'])
+def list_files():
+    """FTP 서버의 파일 목록 가져오기"""
+    try:
+        # FTP 연결 및 파일 목록 조회
+        ftp = ftplib.FTP()
+        ftp.connect(FTP_CONFIG['host'], FTP_CONFIG['port'])
+        ftp.login(FTP_CONFIG['username'], FTP_CONFIG['password'])
+
+        # 파일 목록 가져오기
+        files = []
+
+        def process_line(line):
+            if line.startswith('-'):  # 파일
+                parts = line.split()
+                if len(parts) >= 9:
+                    filename = parts[8]
+                    size = int(parts[4]) if parts[4].isdigit() else 0
+                    # 날짜 파싱
+                    date_str = f"{parts[5]} {parts[6]} {parts[7]}"
+                    try:
+                        file_date = datetime.strptime(date_str, "%b %d %H:%M")
+                        formatted_date = file_date.strftime("%Y-%m-%d %H:%M:%S")
+                    except:
+                        formatted_date = date_str
+
+                    files.append({
+                        'filename': filename,
+                        'size': size,
+                        'size_mb': round(size / (1024 * 1024), 2),
+                        'date': formatted_date,
+                        'url': f"ftp://{FTP_CONFIG['host']}:21/{filename}"
+                    })
+
+        # 현재 디렉토리 목록 가져오기
+        ftp.retrlines('LIST', process_line)
+
+        # 정렬: 최신 파일부터
+        files.sort(key=lambda x: x['date'], reverse=True)
+
+        ftp.quit()
+
+        return jsonify({
+            "success": True,
+            "files": files,
+            "total_count": len(files),
+            "ftp_info": {
+                "host": FTP_CONFIG['host'],
+                "port": FTP_CONFIG['port']
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"FTP list error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "files": []
+        }), 500
+
+@app.route('/api/files/download/<filename>', methods=['GET'])
+def download_file(filename):
+    """FTP 서버에서 파일 다운로드"""
+    try:
+        from flask import send_file
+        import io
+
+        # FTP 연결
+        ftp = ftplib.FTP()
+        ftp.connect(FTP_CONFIG['host'], FTP_CONFIG['port'])
+        ftp.login(FTP_CONFIG['username'], FTP_CONFIG['password'])
+
+        # 파일을 메모리로 다운로드
+        file_data = io.BytesIO()
+        ftp.retrbinary(f"RETR {filename}", file_data.write)
+        file_data.seek(0)
+
+        ftp.quit()
+
+        # 파일 확장자에 따른 MIME 타입
+        if filename.lower().endswith('.mp4'):
+            mime_type = 'video/mp4'
+        elif filename.lower().endswith('.mp3'):
+            mime_type = 'audio/mpeg'
+        elif filename.lower().endswith('.jpg') or filename.lower().endswith('.jpeg'):
+            mime_type = 'image/jpeg'
+        elif filename.lower().endswith('.png'):
+            mime_type = 'image/png'
+        else:
+            mime_type = 'application/octet-stream'
+
+        return send_file(
+            io.BytesIO(file_data.getvalue()),
+            filename,
+            as_attachment=True,
+            mimetype=mime_type
+        )
+
+    except Exception as e:
+        logger.error(f"File download error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+    except Exception as e:
         logger.error(f"FTP upload failed: {str(e)}")
         return jsonify({
             "success": False,
