@@ -305,7 +305,7 @@ def internal_error(error):
 
 @app.route('/api/test', methods=['POST'])
 def test_post():
-    """POST 요청 테스트 엔드포인트"""
+    """POST 요청 테스트 및 기능 엔드포인트"""
     try:
         data = request.get_json()
         if not data:
@@ -314,12 +314,66 @@ def test_post():
                 "error": "No JSON data provided"
             }), 400
 
-        return jsonify({
-            "success": True,
-            "message": "POST test successful",
-            "received_data": data,
-            "timestamp": datetime.now().isoformat()
-        })
+        # 기능별 처리
+        action = data.get('action', 'test')
+
+        if action == 'blogger':
+            # Blogger 기능
+            title = data.get('title', 'Default Title')
+            content = data.get('content', 'Default content')
+            labels = data.get('labels', [])
+
+            blogger = BloggerAPI()
+            result = blogger.create_post(title=title, content=content, labels=labels)
+
+            return jsonify({
+                "success": True,
+                "action": "blogger",
+                "url": result,
+                "post": {
+                    "title": title,
+                    "url": result
+                },
+                "timestamp": datetime.now().isoformat()
+            })
+
+        elif action == 'content':
+            # Content Generation 기능
+            keyword = data.get('keyword', 'Default keyword')
+            template = data.get('template', 'default')
+
+            ai = OpenAIAssistant()
+            result = ai.generate_blog_post(keyword, template)
+
+            return jsonify({
+                "success": True,
+                "action": "content",
+                "content": result,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        elif action == 'keywords':
+            # Keywords 기능
+            keyword = data.get('keyword', 'Default keyword')
+
+            kg = KeywordGenerator()
+            result = kg.analyze(keyword)
+
+            return jsonify({
+                "success": True,
+                "action": "keywords",
+                "data": result,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        else:
+            # 기본 테스트 응답
+            return jsonify({
+                "success": True,
+                "message": "POST test successful",
+                "received_data": data,
+                "timestamp": datetime.now().isoformat()
+            })
 
     except Exception as e:
         logger.error(f"Test POST 실패: {str(e)}")
