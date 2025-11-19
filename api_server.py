@@ -71,7 +71,7 @@ def create_blogger_post():
                 "success": False,
                 "error": "No JSON data provided"
             }), 400
-        
+
         # title과 content를 받음 (keyword는 선택)
         title = data.get('title', '')
         content = data.get('content', '')
@@ -120,6 +120,7 @@ def create_tistory_post():
                 "success": False,
                 "error": "No JSON data provided"
             }), 400
+
         keyword = data.get('keyword', '')
         content = data.get('content', '')
 
@@ -151,6 +152,7 @@ def analyze_keywords():
                 "success": False,
                 "error": "No JSON data provided"
             }), 400
+
         keyword = data.get('keyword', '')
 
         logger.info(f"키워드 분석 요청: keyword={keyword}")
@@ -181,6 +183,7 @@ def generate_content():
                 "success": False,
                 "error": "No JSON data provided"
             }), 400
+
         keyword = data.get('keyword', '')
         template = data.get('template', 'default')
 
@@ -242,6 +245,7 @@ def search_coupang():
                 "success": False,
                 "error": "No JSON data provided"
             }), 400
+
         keyword = data.get('keyword', '')
         limit = data.get('limit', 10)
 
