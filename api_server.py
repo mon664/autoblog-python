@@ -41,6 +41,10 @@ except ImportError as e:
 # Flask 앱 초기화
 app = Flask(__name__)
 
+# JSON 및 CORS 설정
+app.config['JSON_AS_ASCII'] = False
+app.config['JSON_SORT_KEYS'] = False
+
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
@@ -294,6 +298,28 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"success": False, "error": "Internal server error"}), 500
+
+@app.route('/api/test', methods=['POST'])
+def test_post():
+    """POST 요청 테스트 엔드포인트"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
+
+        return jsonify({
+            "success": True,
+            "message": "POST test successful",
+            "received_data": data,
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"Test POST 실패: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
