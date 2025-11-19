@@ -61,7 +61,12 @@ def health():
 def create_blogger_post():
     """Google Blogger 포스팅"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
         
         # title과 content를 받음 (keyword는 선택)
         title = data.get('title', '')
@@ -105,7 +110,12 @@ def create_blogger_post():
 def create_tistory_post():
     """Tistory 포스팅"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
         keyword = data.get('keyword', '')
         content = data.get('content', '')
 
@@ -131,7 +141,12 @@ def create_tistory_post():
 def analyze_keywords():
     """네이버 키워드 분석"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
         keyword = data.get('keyword', '')
 
         logger.info(f"키워드 분석 요청: keyword={keyword}")
@@ -156,7 +171,12 @@ def analyze_keywords():
 def generate_content():
     """OpenAI 콘텐츠 생성"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
         keyword = data.get('keyword', '')
         template = data.get('template', 'default')
 
@@ -182,7 +202,12 @@ def generate_content():
 def submit_to_searchconsole():
     """Google Search Console URL 제출"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
         url = data.get('url', '')
 
         logger.info(f"Search Console 제출 요청: url={url}")
@@ -207,7 +232,12 @@ def submit_to_searchconsole():
 def search_coupang():
     """쿠팡 파트너스 상품 검색"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
         keyword = data.get('keyword', '')
         limit = data.get('limit', 10)
 
