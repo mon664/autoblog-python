@@ -13,6 +13,8 @@ import base64
 import uuid
 import asyncio
 import edge_tts
+import ftplib
+import io
 from concurrent.futures import ThreadPoolExecutor
 
 # 기존 AutoBlog 모듈 임포트 (수정 필요)
@@ -61,6 +63,83 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# RaiDrive FTP 설정
+FTP_CONFIG = {
+    'host': '183.110.224.266',
+    'port': 21,
+    'username': 'xotjr105',
+    'password': 'a6949689Q@@'
+}
+
+def upload_to_ftp(file_content, remote_filename, file_mode='binary'):
+    """
+    FTP 서버에 파일 업로드
+
+    Args:
+        file_content: 파일 내용 (bytes 또는 str)
+        remote_filename: 원격 파일명
+        file_mode: 전송 모드 ('binary' 또는 'ascii')
+
+    Returns:
+        업로드 성공 시 파일 URL, 실패 시 None
+    """
+    try:
+        ftp = ftplib.FTP()
+        ftp.connect(FTP_CONFIG['host'], FTP_CONFIG['port'])
+        ftp.login(FTP_CONFIG['username'], FTP_CONFIG['password'])
+
+        # 파일 내용을 bytes로 변환
+        if isinstance(file_content, str):
+            file_bytes = file_content.encode('utf-8')
+        else:
+            file_bytes = file_content
+
+        # 파일 업로드
+        if file_mode == 'binary':
+            cmd = f'STOR {remote_filename}'
+            ftp.storbinary(cmd, io.BytesIO(file_bytes))
+        else:
+            cmd = f'STOR {remote_filename}'
+            ftp.storlines(cmd, io.StringIO(file_bytes.decode('utf-8')))
+
+        ftp.quit()
+
+        logger.info(f"FTP 업로드 성공: {remote_filename}")
+        # FTP 접속 URL 반환 (웹 접근용)
+        return f"ftp://{FTP_CONFIG['host']}/{remote_filename}"
+
+    except Exception as e:
+        logger.error(f"FTP 업로드 실패: {e}")
+        return None
+
+def download_from_ftp(remote_filename):
+    """
+    FTP 서버에서 파일 다운로드
+
+    Args:
+        remote_filename: 다운로드할 파일명
+
+    Returns:
+        파일 내용 (bytes), 실패 시 None
+    """
+    try:
+        ftp = ftplib.FTP()
+        ftp.connect(FTP_CONFIG['host'], FTP_CONFIG['port'])
+        ftp.login(FTP_CONFIG['username'], FTP_CONFIG['password'])
+
+        # 파일 다운로드
+        file_bytes = io.BytesIO()
+        ftp.retrbinary(f'RETR {remote_filename}', file_bytes.write)
+        ftp.quit()
+
+        file_bytes.seek(0)
+        logger.info(f"FTP 다운로드 성공: {remote_filename}")
+        return file_bytes.getvalue()
+
+    except Exception as e:
+        logger.error(f"FTP 다운로드 실패: {e}")
+        return None
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -406,6 +485,10 @@ def generate_video():
         fps = data.get('fps', 30)
         quality = data.get('quality', 'medium')
         resolution = data.get('resolution', 'landscape')  # landscape, portrait, square
+        audio_url = data.get('audio_url', '')  # 오디오 파일 (선택사항)
+        sync_audio = data.get('sync_audio', False)  # 오디오 싱크 활성화
+        target_duration = data.get('target_duration', None)  # 목표 영상 길이
+        total_duration = data.get('total_duration', None)  # 전체 영상 길이
 
         if not images or len(images) == 0:
             return jsonify({"success": False, "error": "이미지가 필요합니다"}), 400
@@ -421,6 +504,18 @@ def generate_video():
 
         # 임시 디렉토리 생성
         temp_dir = tempfile.mkdtemp()
+
+        # 오디오 싱크를 위한 동적 영상 길이 계산
+        if sync_audio and total_duration:
+            # 오디오 길이에 맞춰 각 장면의 길이 계산
+            scene_duration = max(1, total_duration / len(images))
+            duration = scene_duration
+            logger.info(f"Audio sync enabled: {len(images)} images, {total_duration}s total, {scene_duration:.2f}s per scene")
+        elif target_duration:
+            # 목표 길이에 맞춰 장면 길이 계산
+            scene_duration = max(1, target_duration / len(images))
+            duration = scene_duration
+            logger.info(f"Target duration: {len(images)} images, {target_duration}s total, {scene_duration:.2f}s per scene")
 
         try:
             # 이미지 파일 저장
@@ -438,14 +533,6 @@ def generate_video():
 
                     image_paths.append(image_path)
 
-            # FFmpeg 명령어 생성
-            output_path = os.path.join(temp_dir, 'output.mp4')
-
-            # 입력 파라미터
-            input_params = []
-            for i, path in enumerate(image_paths):
-                input_params.extend(['-loop', '1', '-t', str(duration), '-i', path])
-
             # 해상도 설정
             resolution_map = {
                 'landscape': (1920, 1080),  # 16:9 가로
@@ -453,6 +540,15 @@ def generate_video():
                 'square': (1080, 1080)      # 1:1 정사각형
             }
             width, height = resolution_map.get(resolution, (1920, 1080))
+
+            # FFmpeg 명령어 생성
+            video_only_path = os.path.join(temp_dir, 'video_only.mp4')
+            output_path = os.path.join(temp_dir, 'output_with_audio.mp4')
+
+            # 1. 먼저 이미지로 비디오만 생성
+            input_params = []
+            for i, path in enumerate(image_paths):
+                input_params.extend(['-loop', '1', '-t', str(duration), '-i', path])
 
             # 필터 설정
             filter_complex = []
@@ -471,8 +567,11 @@ def generate_video():
             crf_map = {'low': 28, 'medium': 23, 'high': 18}
             crf = crf_map.get(quality, 23)
 
-            # FFmpeg 명령어 실행
-            cmd = [
+            # 계산된 총 영상 길이
+            calculated_video_duration = len(images) * duration
+
+            # 비디오만 생성하는 FFmpeg 명령어
+            video_cmd = [
                 'ffmpeg',
                 *input_params,
                 '-filter_complex', ';'.join(filter_complex),
@@ -482,13 +581,71 @@ def generate_video():
                 '-crf', str(crf),
                 '-pix_fmt', 'yuv420p',
                 '-r', str(fps),
-                '-t', str(len(images) * duration),
-                output_path
+                '-t', str(calculated_video_duration),
+                video_only_path
             ]
 
-            logger.info(f"FFmpeg command: {' '.join(cmd)}")
+            logger.info(f"Video-only FFmpeg command: {' '.join(video_cmd)}")
+            result = subprocess.run(video_cmd, capture_output=True, text=True, check=True)
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            # 2. 오디오가 있으면 오디오와 비디오 결합 (개선된 싱크)
+            if audio_url:
+                audio_path = os.path.join(temp_dir, 'audio.mp3')
+
+                # 오디오 파일 저장
+                if audio_url.startswith('data:audio'):
+                    header, encoded = audio_url.split(',', 1)
+                    with open(audio_path, 'wb') as f:
+                        f.write(base64.b64decode(encoded))
+
+                # 오디오 길이 확인 및 로깅
+                try:
+                    # ffprobe로 오디오 길이 확인
+                    probe_cmd = [
+                        'ffprobe', '-v', 'quiet', '-show_entries', 'format=duration',
+                        '-of', 'csv=p=0', audio_path
+                    ]
+                    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+                    if probe_result.returncode == 0:
+                        audio_duration = float(probe_result.stdout.strip())
+                        logger.info(f"Audio duration detected: {audio_duration:.2f}s")
+
+                        # 오디오 싱크가 활성화된 경우, 비디오 길이를 오디오 길이에 정확히 맞춤
+                        if sync_audio:
+                            logger.info(f"Syncing video duration {calculated_video_duration:.2f}s to audio duration {audio_duration:.2f}s")
+                except Exception as e:
+                    logger.warning(f"Could not probe audio duration: {e}")
+
+                # 개선된 오디오+비디오 결합 FFmpeg 명령어
+                audio_cmd = [
+                    'ffmpeg',
+                    '-i', video_only_path,
+                    '-i', audio_path,
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',  # 향상된 오디오 품질
+                    '-ar', '44100',  # 표준 샘플 레이트
+                    '-avoid_negative_ts', 'make_zero',  # 더 나은 타임스탬프 처리
+                ]
+
+                if sync_audio:
+                    # 오디오 싱크 모드: 오디오 길이에 맞춰 비디오 조정
+                    audio_cmd.extend([
+                        '-t', str(audio_duration) if 'audio_duration' in locals() else str(calculated_video_duration),
+                        '-async', '1',  # 오디오 싱크 보정
+                    ])
+                else:
+                    # 기본 모드: 더 짧은 쪽에 맞춤
+                    audio_cmd.append('-shortest')
+
+                audio_cmd.append(output_path)
+
+                logger.info(f"Audio+Video FFmpeg command: {' '.join(audio_cmd)}")
+                result = subprocess.run(audio_cmd, capture_output=True, text=True, check=True)
+            else:
+                # 오디오가 없으면 비디오만 출력
+                import shutil
+                shutil.move(video_only_path, output_path)
 
             # 결과 비디오를 base64로 변환
             with open(output_path, 'rb') as f:
@@ -497,19 +654,39 @@ def generate_video():
             video_base64 = base64.b64encode(video_data).decode('utf-8')
             video_url = f"data:video/mp4;base64,{video_base64}"
 
+            # FTP에 비디오 파일 저장
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            resolution_tag = f"{width}x{height}"
+            audio_tag = "with_audio" if audio_url else "no_audio"
+            ftp_filename = f"video_{timestamp}_{resolution_tag}_{audio_tag}.mp4"
+            ftp_url = upload_to_ftp(video_data, ftp_filename, 'binary')
+
+            # 최종 메타데이터 계산
+            final_duration = audio_duration if audio_url and 'audio_duration' in locals() else calculated_video_duration
+            scene_duration = final_duration / len(images) if len(images) > 0 else duration
+
             return jsonify({
                 "success": True,
                 "video_url": video_url,
+                "ftp_url": ftp_url,  # FTP 저장 경로 추가
                 "metadata": {
-                    "duration": len(images) * duration,
+                    "duration": final_duration,
+                    "calculated_video_duration": calculated_video_duration,
+                    "audio_duration": audio_duration if audio_url and 'audio_duration' in locals() else None,
+                    "scene_duration": scene_duration,
                     "fps": fps,
+                    "sync_audio": sync_audio,
+                    "images_count": len(images),
                     "resolution": f"{width}x{height}",
                     "resolution_type": resolution,
                     "quality": quality,
                     "file_size": len(video_data),
-                    "image_count": len(images)
+                    "image_count": len(images),
+                    "has_audio": bool(audio_url),
+                    "audio_included": audio_url != "",
+                    "ftp_file": ftp_filename
                 },
-                "ffmpeg_log": result.stderr
+                "ffmpeg_log": result.stderr if audio_url else "Video generated without audio"
             })
 
         finally:
@@ -599,14 +776,22 @@ def generate_tts():
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
             audio_url = f"data:audio/mp3;base64,{audio_base64}"
 
+            # FTP에 오디오 파일 저장
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_text = text[:50].replace(" ", "_").replace("/", "_").replace("\\", "_")
+            ftp_filename = f"tts_{timestamp}_{safe_text}.mp3"
+            ftp_url = upload_to_ftp(audio_data, ftp_filename, 'binary')
+
             return jsonify({
                 "success": True,
                 "audio_url": audio_url,
+                "ftp_url": ftp_url,  # FTP 저장 경로 추가
                 "metadata": {
                     "text": text,
                     "voice": voice,
                     "duration": len(audio_data),
-                    "format": "mp3"
+                    "format": "mp3",
+                    "ftp_file": ftp_filename
                 }
             })
 
@@ -660,3 +845,115 @@ if __name__ == '__main__':
 
     # debug=False로 설정 (프로덕션 환경)
     app.run(host=host, port=port, debug=False)
+
+# FTP 관리 API 엔드포인트들
+@app.route('/api/ftp/upload', methods=['POST'])
+def upload_file_to_ftp():
+    """파일을 FTP 서버에 업로드"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        # 파일 읽기
+        file_content = file.read()
+
+        # 파일명 생성 (타임스탬프 추가)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_filename = file.filename
+        safe_filename = f"{timestamp}_{original_filename}"
+
+        # FTP 업로드
+        ftp_url = upload_to_ftp(file_content, safe_filename, 'binary')
+
+        if ftp_url:
+            return jsonify({
+                "success": True,
+                "ftp_url": ftp_url,
+                "filename": safe_filename,
+                "original_filename": original_filename,
+                "file_size": len(file_content)
+            })
+        else:
+            return jsonify({"success": False, "error": "FTP upload failed"}), 500
+
+    except Exception as e:
+        logger.error(f"FTP upload failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"FTP upload failed: {str(e)}"
+        }), 500
+
+@app.route('/api/ftp/files', methods=['GET'])
+def list_ftp_files():
+    """FTP 서버 파일 목록 조회"""
+    try:
+        ftp = ftplib.FTP()
+        ftp.connect(FTP_CONFIG['host'], FTP_CONFIG['port'])
+        ftp.login(FTP_CONFIG['username'], FTP_CONFIG['password'])
+
+        # 파일 목록 가져오기
+        files = []
+        ftp.dir("", files.append)
+        ftp.quit()
+
+        # 파일 정보 파싱
+        file_list = []
+        for file_info in files:
+            if file_info.strip():
+                parts = file_info.split()
+                if len(parts) >= 9 and not parts[0].startswith('d'):
+                    filename = ' '.join(parts[8:])
+                    file_list.append({
+                        "filename": filename,
+                        "info": file_info.strip()
+                    })
+
+        return jsonify({
+            "success": True,
+            "files": file_list,
+            "total_count": len(file_list)
+        })
+
+    except Exception as e:
+        logger.error(f"FTP list files failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"FTP list files failed: {str(e)}"
+        }), 500
+
+@app.route('/api/ftp/download/<filename>', methods=['GET'])
+def download_from_ftp_file(filename):
+    """FTP 서버에서 파일 다운로드"""
+    try:
+        file_bytes = download_from_ftp(filename)
+
+        if file_bytes:
+            # 파일 타입 감지
+            if filename.endswith('.mp4'):
+                mimetype = 'video/mp4'
+            elif filename.endswith('.mp3'):
+                mimetype = 'audio/mpeg'
+            elif filename.endswith('.jpg') or filename.endswith('.jpeg'):
+                mimetype = 'image/jpeg'
+            elif filename.endswith('.png'):
+                mimetype = 'image/png'
+            else:
+                mimetype = 'application/octet-stream'
+
+            return file_bytes, 200, {
+                'Content-Type': mimetype,
+                'Content-Disposition': f'attachment; filename="{filename}"'
+            }
+        else:
+            return jsonify({"success": False, "error": "File not found or download failed"}), 404
+
+    except Exception as e:
+        logger.error(f"FTP download failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"FTP download failed: {str(e)}"
+        }), 500
