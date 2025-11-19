@@ -532,6 +532,44 @@ def generate_video():
                         f.write(base64.b64decode(encoded))
 
                     image_paths.append(image_path)
+                elif image_data.startswith('http'):
+                    # URL 이미지 다운로드
+                    try:
+                        response = requests.get(image_data, timeout=10)
+                        if response.status_code == 200:
+                            # 파일 확장자 결정
+                            content_type = response.headers.get('content-type', 'image/jpeg')
+                            if 'jpeg' in content_type or 'jpg' in content_type:
+                                file_extension = 'jpg'
+                            elif 'png' in content_type:
+                                file_extension = 'png'
+                            elif 'webp' in content_type:
+                                file_extension = 'webp'
+                            else:
+                                file_extension = 'jpg'  # 기본값
+
+                            image_path = os.path.join(temp_dir, f'input_{i}.{file_extension}')
+
+                            with open(image_path, 'wb') as f:
+                                f.write(response.content)
+
+                            image_paths.append(image_path)
+                            logger.info(f"Downloaded image {i} from {image_data}")
+                        else:
+                            logger.error(f"Failed to download image {i}: HTTP {response.status_code}")
+                    except Exception as e:
+                        logger.error(f"Error downloading image {i}: {str(e)}")
+                else:
+                    logger.warning(f"Unsupported image format for image {i}: {image_data[:50]}...")
+
+            # 이미지 처리 확인
+            if not image_paths:
+                return jsonify({
+                    "success": False,
+                    "error": f"이미지 처리 실패: {len(images)}개 중 0개만 처리됨"
+                }), 400
+
+            logger.info(f"Successfully processed {len(image_paths)} images")
 
             # 해상도 설정
             resolution_map = {
