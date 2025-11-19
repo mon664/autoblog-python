@@ -11,6 +11,9 @@ import subprocess
 import tempfile
 import base64
 import uuid
+import asyncio
+import edge_tts
+from concurrent.futures import ThreadPoolExecutor
 
 # 기존 AutoBlog 모듈 임포트 (수정 필요)
 try:
@@ -44,6 +47,9 @@ except ImportError as e:
 
 # Flask 앱 초기화
 app = Flask(__name__)
+
+# 스레드 풀 executor
+executor = ThreadPoolExecutor(max_workers=4)
 
 # JSON 및 CORS 설정
 app.config['JSON_AS_ASCII'] = False
@@ -553,6 +559,98 @@ def ffmpeg_info():
             "success": False,
             "error": str(e)
         })
+
+# Async 함수를 위한 헬퍼
+def run_async(coro):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+@app.route('/api/tts/generate', methods=['POST'])
+def generate_tts():
+    """Edge TTS로 음성 파일 생성"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No JSON data provided"}), 400
+
+        text = data.get('text', '')
+        voice = data.get('voice', 'ko-KR-JennyNeural')  # 기본 한국어 여성 목소리
+
+        if not text:
+            return jsonify({"success": False, "error": "Text is required"}), 400
+
+        temp_dir = tempfile.mkdtemp()
+        audio_path = os.path.join(temp_dir, 'tts_audio.mp3')
+
+        try:
+            # Edge TTS로 음성 생성 (스레드에서 async 실행)
+            communicate = edge_tts.Communicate(text, voice)
+            future = executor.submit(run_async, communicate.save(audio_path))
+            future.result()  # 완료될 때까지 대기
+
+            # 오디오 파일을 base64로 변환
+            with open(audio_path, 'rb') as f:
+                audio_data = f.read()
+
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            audio_url = f"data:audio/mp3;base64,{audio_base64}"
+
+            return jsonify({
+                "success": True,
+                "audio_url": audio_url,
+                "metadata": {
+                    "text": text,
+                    "voice": voice,
+                    "duration": len(audio_data),
+                    "format": "mp3"
+                }
+            })
+
+        finally:
+            # 임시 파일 정리
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    except Exception as e:
+        logger.error(f"TTS generation failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"TTS 생성 실패: {str(e)}"
+        }), 500
+
+@app.route('/api/tts/voices', methods=['GET'])
+def get_tts_voices():
+    """사용 가능한 Edge TTS 목소리 목록"""
+    try:
+        # 한국어 목소리들
+        voices = [
+            {"id": "ko-KR-JennyNeural", "name": "Jenny (여성)", "language": "Korean"},
+            {"id": "ko-KR-SunHiNeural", "name": "SunHi (여성)", "language": "Korean"},
+            {"id": "ko-KR-InJoonNeural", "name": "InJoon (남성)", "language": "Korean"},
+            {"id": "ko-KR-KyungSunNeural", "name": "KyungSun (여성)", "language": "Korean"},
+            # 영어 목소리들
+            {"id": "en-US-JennyNeural", "name": "Jenny (US Female)", "language": "English"},
+            {"id": "en-US-GuyNeural", "name": "Guy (US Male)", "language": "English"},
+            {"id": "en-US-AriaNeural", "name": "Aria (US Female)", "language": "English"},
+            {"id": "en-GB-ryanNeural", "name": "Ryan (UK Male)", "language": "English"},
+        ]
+
+        return jsonify({
+            "success": True,
+            "voices": voices,
+            "default_voice": "ko-KR-JennyNeural"
+        })
+
+    except Exception as e:
+        logger.error(f"Get TTS voices failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
