@@ -21,14 +21,16 @@ except ImportError as e:
     class MockAPI:
         def __init__(self):
             pass
-        def create_post(self, keyword, content):
-            return f"https://mock-blog.com/post/{keyword}"
+        def create_post(self, title, content, labels=None):
+            return f"https://mock-blog.com/post/{title}"
         def auto_post(self, keyword, content):
             return f"https://mock-tistory.com/post/{keyword}"
         def analyze(self, keyword):
             return {"related_keywords": [f"{keyword}_1", f"{keyword}_2"]}
         def generate_blog_post(self, keyword, template):
             return f"Generated content for {keyword} using {template} template"
+        def submit_url(self, url):
+            return {"status": "submitted", "url": url}
 
     BloggerAPI = MockAPI
     TistoryAutomation = MockAPI
@@ -60,20 +62,38 @@ def create_blogger_post():
     """Google Blogger 포스팅"""
     try:
         data = request.json
-        keyword = data.get('keyword', '')
+        
+        # title과 content를 받음 (keyword는 선택)
+        title = data.get('title', '')
         content = data.get('content', '')
+        labels = data.get('labels', [])
+        
+        # title이 없으면 keyword 사용 (하위 호환성)
+        if not title:
+            title = data.get('keyword', '')
 
-        logger.info(f"Blogger 포스팅 요청: keyword={keyword}")
+        logger.info(f"Blogger 포스팅 요청: title={title}")
 
-        if not keyword:
-            return jsonify({"success": False, "error": "Keyword is required"}), 400
+        if not title or not content:
+            return jsonify({
+                "success": False, 
+                "error": "Title and content are required"
+            }), 400
 
         blogger = BloggerAPI()
-        result = blogger.create_post(keyword, content)
+        result = blogger.create_post(
+            title=title,
+            content=content,
+            labels=labels
+        )
 
         return jsonify({
             "success": True,
             "url": result,
+            "post": {
+                "title": title,
+                "url": result
+            },
             "timestamp": datetime.now().isoformat()
         })
 
