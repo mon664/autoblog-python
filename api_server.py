@@ -764,10 +764,66 @@ def generate_tts():
         audio_path = os.path.join(temp_dir, 'tts_audio.mp3')
 
         try:
-            # Edge TTS로 음성 생성 (스레드에서 async 실행)
-            communicate = edge_tts.Communicate(text, voice)
-            future = executor.submit(run_async, communicate.save(audio_path))
-            future.result()  # 완료될 때까지 대기
+            # Google Cloud TTS API 사용
+            try:
+                GOOGLE_API_KEY = os.environ.get('GOOGLE_TTS_API_KEY')
+
+                if GOOGLE_API_KEY:
+                    # 한국어 목소리 매핑
+                    voiceMap = {
+                        'ko-KR-JennyNeural': 'ko-KR-Wavenet-D',  # 남성 목소리 (더 선명함)
+                        'ko-KR-SunHiNeural': 'ko-KR-Wavenet-A', # 여성 목소리 (일반적)
+                        'ko-KR-InJoonNeural': 'ko-KR-Wavenet-B', # 여성 목소리
+                        'ko-KR-KyungSunNeural': 'ko-KR-Wavenet-C'  # 여성 목소리
+                    }
+
+                    selectedVoice = voiceMap.get(voice, 'ko-KR-Wavenet-A')
+                    logger.info(f"Using Google TTS voice: {selectedVoice}")
+
+                    # Google Cloud TTS API 호출
+                    response = requests.post(
+                        f'https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_API_KEY}',
+                        headers={
+                            'Content-Type': 'application/json',
+                        },
+                        json={
+                            'input': {'text': text},
+                            'voice': {
+                                'languageCode': 'ko-KR',
+                                'name': selectedVoice,
+                                'ssmlGender': 'NEUTRAL'
+                            },
+                            'audioConfig': {
+                                'audioEncoding': 'MP3',
+                                'speakingRate': 0.9,
+                                'pitch': 0.0,
+                                'sampleRateHertz': 24000,
+                                'volumeGainDb': 5.0  # 볼륨 증가
+                            }
+                        }
+                    )
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        audio_content = data.get('audioContent', '')
+
+                        if audio_content:
+                            audio_data = base64.b64decode(audio_content)
+                            with open(audio_path, 'wb') as f:
+                                f.write(audio_data)
+                else:
+                    logger.warning("Google TTS API key not found, falling back to Edge TTS")
+                    # Edge TTS로 음성 생성 (스레드에서 async 실행)
+                    communicate = edge_tts.Communicate(text, voice)
+                    future = executor.submit(run_async, communicate.save(audio_path))
+                    future.result()  # 완료될 때까지 대기
+
+            except Exception as e:
+                logger.error(f"Google TTS error: {e}, falling back to Edge TTS")
+                # Edge TTS로 음성 생성 (스레드에서 async 실행)
+                communicate = edge_tts.Communicate(text, voice)
+                future = executor.submit(run_async, communicate.save(audio_path))
+                future.result()  # 완료될 때까지 대기
 
             # 오디오 파일을 base64로 변환
             with open(audio_path, 'rb') as f:
@@ -791,7 +847,8 @@ def generate_tts():
                     "voice": voice,
                     "duration": len(audio_data),
                     "format": "mp3",
-                    "ftp_file": ftp_filename
+                    "ftp_file": ftp_filename,
+                    "provider": "Google Cloud TTS" if os.environ.get('GOOGLE_TTS_API_KEY') else "Edge TTS"
                 }
             })
 
@@ -809,14 +866,14 @@ def generate_tts():
 
 @app.route('/api/tts/voices', methods=['GET'])
 def get_tts_voices():
-    """사용 가능한 Edge TTS 목소리 목록"""
+    """사용 가능한 TTS 목소리 목록 (Google Cloud TTS + Edge TTS)"""
     try:
-        # 한국어 목소리들
+        # 한국어 목소리들 (Google TTS 매핑)
         voices = [
-            {"id": "ko-KR-JennyNeural", "name": "Jenny (여성)", "language": "Korean"},
-            {"id": "ko-KR-SunHiNeural", "name": "SunHi (여성)", "language": "Korean"},
-            {"id": "ko-KR-InJoonNeural", "name": "InJoon (남성)", "language": "Korean"},
-            {"id": "ko-KR-KyungSunNeural", "name": "KyungSun (여성)", "language": "Korean"},
+            {"id": "ko-KR-JennyNeural", "name": "Jenny (남성, WaveNet-D)", "language": "Korean"},
+            {"id": "ko-KR-SunHiNeural", "name": "SunHi (여성, WaveNet-A)", "language": "Korean"},
+            {"id": "ko-KR-InJoonNeural", "name": "InJoon (여성, WaveNet-B)", "language": "Korean"},
+            {"id": "ko-KR-KyungSunNeural", "name": "KyungSun (여성, WaveNet-C)", "language": "Korean"},
             # 영어 목소리들
             {"id": "en-US-JennyNeural", "name": "Jenny (US Female)", "language": "English"},
             {"id": "en-US-GuyNeural", "name": "Guy (US Male)", "language": "English"},
@@ -827,7 +884,8 @@ def get_tts_voices():
         return jsonify({
             "success": True,
             "voices": voices,
-            "default_voice": "ko-KR-JennyNeural"
+            "default_voice": "ko-KR-JennyNeural",
+            "provider": "Google Cloud TTS" if os.environ.get('GOOGLE_TTS_API_KEY') else "Edge TTS"
         })
 
     except Exception as e:
