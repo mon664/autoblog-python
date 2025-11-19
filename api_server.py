@@ -399,6 +399,7 @@ def generate_video():
         duration = data.get('duration', 3)
         fps = data.get('fps', 30)
         quality = data.get('quality', 'medium')
+        resolution = data.get('resolution', 'landscape')  # landscape, portrait, square
 
         if not images or len(images) == 0:
             return jsonify({"success": False, "error": "이미지가 필요합니다"}), 400
@@ -439,13 +440,21 @@ def generate_video():
             for i, path in enumerate(image_paths):
                 input_params.extend(['-loop', '1', '-t', str(duration), '-i', path])
 
+            # 해상도 설정
+            resolution_map = {
+                'landscape': (1920, 1080),  # 16:9 가로
+                'portrait': (1080, 1920),   # 9:16 세로 (숏츠)
+                'square': (1080, 1080)      # 1:1 정사각형
+            }
+            width, height = resolution_map.get(resolution, (1920, 1080))
+
             # 필터 설정
             filter_complex = []
             filter_parts = []
 
             for i, path in enumerate(image_paths):
-                # 각 이미지를 1920x1080으로 스케일 및 패딩
-                filter_complex.append(f'[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}[v{i}]')
+                # 선택된 해상도로 스케일 및 패딩
+                filter_complex.append(f'[{i}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}[v{i}]')
                 filter_parts.append(f'[v{i}]')
 
             # 이미지 연결
@@ -488,7 +497,8 @@ def generate_video():
                 "metadata": {
                     "duration": len(images) * duration,
                     "fps": fps,
-                    "resolution": "1920x1080",
+                    "resolution": f"{width}x{height}",
+                    "resolution_type": resolution,
                     "quality": quality,
                     "file_size": len(video_data),
                     "image_count": len(images)
