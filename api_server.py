@@ -588,15 +588,46 @@ def generate_video():
             logger.info(f"Video-only FFmpeg command: {' '.join(video_cmd)}")
             result = subprocess.run(video_cmd, capture_output=True, text=True, check=True)
 
-            # 2. 오디오가 있으면 오디오와 비디오 결합 (개선된 싱크)
+            # 2. 오디오가 있으면 오디오와 비디오 결합 (MoviePy 완전 통합)
             if audio_url:
                 audio_path = os.path.join(temp_dir, 'audio.mp3')
+                processed_audio_path = os.path.join(temp_dir, 'processed_audio.mp3')
 
                 # 오디오 파일 저장
                 if audio_url.startswith('data:audio'):
                     header, encoded = audio_url.split(',', 1)
                     with open(audio_path, 'wb') as f:
                         f.write(base64.b64decode(encoded))
+
+                # 라이트웨이트 오디오 전처리 (Railway 최적화)
+                try:
+                    # 1단계: 기본 오디오 최적화만 (Railway 부하 감소)
+                    audio_process_cmd = [
+                        'ffmpeg',
+                        '-i', audio_path,
+                        '-vn',  # 비디오 없음
+                        '-af',
+                        # 필수적인 최소한의 처리만
+                        'volume=2.0',  # 볼륨만 2배 증가 (단순하고 빠름)
+                        '-ar', '44100',  # 표준 샘플 레이트
+                        '-ac', '2',      # 스테레오
+                        '-c:a', 'mp3',   # 가볍고 호환성 좋은 포맷
+                        '-b:a', '128k',  # 적정 비트레이트 (용량 절약)
+                        '-y',            # 덮어쓰기
+                        processed_audio_path
+                    ]
+
+                    logger.info(f"Lightweight audio processing: {' '.join(audio_process_cmd)}")
+                    process_result = subprocess.run(audio_process_cmd, capture_output=True, text=True, check=True, timeout=30)  # 30초 타임아웃
+
+                    # 전처리된 오디오 사용
+                    if os.path.exists(processed_audio_path):
+                        audio_path = processed_audio_path
+                        logger.info("Lightweight audio processing completed")
+
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                    logger.warning(f"Audio processing failed: {e}, using original audio")
+                    # 전처리 실패 시 원본 오디오 사용 (실패 방지)
 
                 # 오디오 길이 확인 및 로깅
                 try:
@@ -616,16 +647,17 @@ def generate_video():
                 except Exception as e:
                     logger.warning(f"Could not probe audio duration: {e}")
 
-                # 개선된 오디오+비디오 결합 FFmpeg 명령어
+                # MoviePy 스타일 효율적 오디오+비디오 결합 FFmpeg 명령어
                 audio_cmd = [
                     'ffmpeg',
-                    '-i', video_only_path,
-                    '-i', audio_path,
-                    '-c:v', 'copy',
-                    '-c:a', 'aac',
-                    '-b:a', '192k',  # 향상된 오디오 품질
-                    '-ar', '44100',  # 표준 샘플 레이트
-                    '-avoid_negative_ts', 'make_zero',  # 더 나은 타임스탬프 처리
+                    '-i', video_only_path,  # 비디오 입력
+                    '-i', audio_path,        # 오디오 입력
+                    '-c:v', 'copy',          # 비디오 코덱 복사 (품질 유지)
+                    '-c:a', 'aac',           # AAC 코덱 (호환성)
+                    '-b:a', '192k',          # 적정 비트레이트 (품질/용량 균형)
+                    '-ar', '44100',          # 표준 샘플 레이트 (안정성)
+                    '-ac', '2',              # 스테레오
+                    '-movflags', '+faststart',  # 웹 스트리밍 최적화
                 ]
 
                 if sync_audio:
