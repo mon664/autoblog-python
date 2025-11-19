@@ -7,6 +7,10 @@ import sys
 import json
 import logging
 from datetime import datetime
+import subprocess
+import tempfile
+import base64
+import uuid
 
 # 기존 AutoBlog 모듈 임포트 (수정 필요)
 try:
@@ -378,6 +382,167 @@ def test_post():
     except Exception as e:
         logger.error(f"Test POST 실패: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+# ===========================
+# 🎬 FFmpeg 비디오 처리 엔드포인트
+# ===========================
+
+@app.route('/api/video/generate', methods=['POST'])
+def generate_video():
+    """이미지 배열을 비디오로 변환 (서버 측 FFmpeg)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No JSON data provided"}), 400
+
+        images = data.get('images', [])
+        duration = data.get('duration', 3)
+        fps = data.get('fps', 30)
+        quality = data.get('quality', 'medium')
+
+        if not images or len(images) == 0:
+            return jsonify({"success": False, "error": "이미지가 필요합니다"}), 400
+
+        # FFmpeg 설치 확인
+        try:
+            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return jsonify({
+                "success": False,
+                "error": "FFmpeg가 설치되지 않았습니다"
+            }), 500
+
+        # 임시 디렉토리 생성
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            # 이미지 파일 저장
+            image_paths = []
+            for i, image_data in enumerate(images):
+                if image_data.startswith('data:image'):
+                    # Base64 이미지 디코딩
+                    header, encoded = image_data.split(',', 1)
+                    file_extension = header.split('/')[1].split(';')[0]
+
+                    image_path = os.path.join(temp_dir, f'input_{i}.{file_extension}')
+
+                    with open(image_path, 'wb') as f:
+                        f.write(base64.b64decode(encoded))
+
+                    image_paths.append(image_path)
+
+            # FFmpeg 명령어 생성
+            output_path = os.path.join(temp_dir, 'output.mp4')
+
+            # 입력 파라미터
+            input_params = []
+            for i, path in enumerate(image_paths):
+                input_params.extend(['-loop', '1', '-t', str(duration), '-i', path])
+
+            # 필터 설정
+            filter_complex = []
+            filter_parts = []
+
+            for i, path in enumerate(image_paths):
+                # 각 이미지를 1920x1080으로 스케일 및 패딩
+                filter_complex.append(f'[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}[v{i}]')
+                filter_parts.append(f'[v{i}]')
+
+            # 이미지 연결
+            concat_filter = f'{"".join(filter_parts)}concat=n={len(image_paths)}:v=1[out]'
+            filter_complex.append(concat_filter)
+
+            # 품질 설정
+            crf_map = {'low': 28, 'medium': 23, 'high': 18}
+            crf = crf_map.get(quality, 23)
+
+            # FFmpeg 명령어 실행
+            cmd = [
+                'ffmpeg',
+                *input_params,
+                '-filter_complex', ';'.join(filter_complex),
+                '-map', '[out]',
+                '-c:v', 'libx264',
+                '-preset', 'medium',
+                '-crf', str(crf),
+                '-pix_fmt', 'yuv420p',
+                '-r', str(fps),
+                '-t', str(len(images) * duration),
+                output_path
+            ]
+
+            logger.info(f"FFmpeg command: {' '.join(cmd)}")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+            # 결과 비디오를 base64로 변환
+            with open(output_path, 'rb') as f:
+                video_data = f.read()
+
+            video_base64 = base64.b64encode(video_data).decode('utf-8')
+            video_url = f"data:video/mp4;base64,{video_base64}"
+
+            return jsonify({
+                "success": True,
+                "video_url": video_url,
+                "metadata": {
+                    "duration": len(images) * duration,
+                    "fps": fps,
+                    "resolution": "1920x1080",
+                    "quality": quality,
+                    "file_size": len(video_data),
+                    "image_count": len(images)
+                },
+                "ffmpeg_log": result.stderr
+            })
+
+        finally:
+            # 임시 파일 정리
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"FFmpeg execution failed: {e.stderr}")
+        return jsonify({
+            "success": False,
+            "error": "FFmpeg 실행 실패",
+            "details": e.stderr
+        }), 500
+    except Exception as e:
+        logger.error(f"Video generation error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/video/info', methods=['GET'])
+def ffmpeg_info():
+    """FFmpeg 설치 정보 확인"""
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True, check=True)
+
+        # FFmpeg 버전 정보 파싱
+        first_line = result.stdout.split('\n')[0]
+
+        return jsonify({
+            "success": True,
+            "installed": True,
+            "version": first_line,
+            "full_output": result.stdout,
+            "server_info": {
+                "platform": os.uname().sysname,
+                "architecture": os.uname().machine
+            }
+        })
+
+    except FileNotFoundError:
+        return jsonify({
+            "success": False,
+            "installed": False,
+            "error": "FFmpeg가 설치되지 않았습니다"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))

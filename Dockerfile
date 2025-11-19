@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Chrome 브라우저 설치
